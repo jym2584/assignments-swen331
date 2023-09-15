@@ -5,7 +5,7 @@ before_script:
   # don't change these either
   - chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
   - echo '[+] Starting mysql...'
-  - service mysql start
+  - service mysql startor 
   - echo '[+] Starting apache'
   - service apache2 start
 fuzzrunner:
