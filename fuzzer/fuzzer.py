@@ -56,10 +56,9 @@ def get_pages_from_url(web_url):
     """ Retreives web pages <a> tags from url 
     """
     routes = set()
-
     if not re.findall("(\..*)$", web_url): # add a slash if there is no extension at the end of the website
         web_url = web_url + "/"
-    print("URLs for {}".format(web_url))
+    print("URLs for: " + web_url)
     browser.open(web_url)
 
     for tag in browser.page.select('a'):
@@ -67,7 +66,7 @@ def get_pages_from_url(web_url):
         if re.findall("(http://|https://|www.)", link): # skip external links
             continue
         try:
-            if link in {".", "/"} or link.startswith("?C="): # this is mostly for built-in pages that has folders in them
+            if link in {".", "/"} or link.startswith("?C=") or link.endswith("logout.php"): # this is mostly for built-in pages that has folders in them
                 continue
             full_link = "{}/{}".format(web_url, link)
             if check_page_status(full_link):
@@ -80,19 +79,21 @@ def get_pages_from_url(web_url):
 
 def guess_pages(web_url, words, extensions):
     guessed_pages=set()
-    print("************************************Guessed web pages************************************")
+    print("Guessed")
     for word in words:
         for ext in extensions:
             guessed_url = "{}/{}{}".format(web_url, word, ext)
             if check_page_status(guessed_url):
-                print(guessed_url)
+                print("\t" + guessed_url)
                 guessed_pages.add(guessed_url)
     return guessed_pages
 
 def crawl_pages(guessed_pages):
-    print("************************************Crawled web pages************************************")
+    crawled = set()
     for page in guessed_pages:
-        get_pages_from_url(page)
+        routes = get_pages_from_url(page)
+        crawled.update(routes)
+    return crawled
 
 def main():
     if args.custom_auth:
@@ -108,8 +109,10 @@ def main():
     words = parse_file(args.common_words) # required
 
     if args.type == "discover":
+        print("************************************Guessed web pages************************************")
         guessed_pages = guess_pages(args.url, words, EXTENSIONS)
-        crawl_pages(guessed_pages)
+        print("************************************Crawled web pages************************************")
+        crawled = crawl_pages(guessed_pages)
 
 
 if __name__ == "__main__":

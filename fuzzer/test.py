@@ -1,3 +1,4 @@
 import re
-string = "asdasd"
-print(re.findall("(http://|https://|www.)", string))
+string = "https://asdasdsa"
+string = "https://asdasdsa"
+print(re.findall("^(.*[\\\/])[^\\\/]*$", string))
