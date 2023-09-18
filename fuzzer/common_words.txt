@@ -54,4 +54,5 @@ index
 setup
 valid
 timeout
-CioffisTheBest
+login
+about
