@@ -8,3 +8,10 @@
 
 ### HW 0
 - Run `python fuzzer.py discover http://localhost:80 --custom-auth "dvwa"`
+
+### HW 1
+-  Run `py fuzzer.py discover http://localhost:80 --custom-auth="dvwa" --cw="files/common_words.txt" --ext="files/extensions.txt"`
+
+Alternate tests:
+- `py fuzzer.py discover http://localhost:80 --custom-auth="dvwa" --cw="files/common_words.txt"`
+- `py fuzzer.py discover http://localhost:80/fuzzer-tests --custom-auth="dvwa" --cw="files/common_words.txt"`
