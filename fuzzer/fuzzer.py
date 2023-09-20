@@ -74,11 +74,8 @@ def get_pages_from_url(web_url):
         try:
             if link in {".", "/"} or link.startswith("?C=") or link.endswith("logout.php"): # this is mostly for built-in pages that has folders in them
                 continue
-            full_link = "{}/{}".format(web_url, link)
+            full_link = re.sub("(\.\/)", "", "{}/{}".format(re.findall("^(.*[\\\/])[^\\\/]*$", web_url)[0], link))
             if check_page_status(full_link):
-                print(full_link)
-                print(check_page_status(full_link))
-                full_link = "{}{}".format(re.findall("^(.*[\\\/])[^\\\/]*$", web_url)[0], link) # parse out link
                 routes.add(full_link)
         except: # requests.exceptions is thrown so avoid looking 
             pass
@@ -220,8 +217,11 @@ def main():
         print("**************************************** Cookies ****************************************")
         print("*****************************************************************************************")
         cookies = get_cookies(args.url)
-        for cookie in cookies:
-            print(cookie.name + ":" + cookie.value)
+        if cookies:
+            for cookie in cookies:
+                print(cookie.name + ":" + cookie.value)
+        else:
+            print("No cookies :(")
 
 if __name__ == "__main__":
     main()
