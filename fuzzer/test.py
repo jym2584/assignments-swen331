@@ -1,4 +1,7 @@
 import re
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 string = "http://localhost:80//vulnerabilities//brute/"
 print(re.sub(r"(https?://[^/\s]+)(/{2,})", r'\1/', string))
 

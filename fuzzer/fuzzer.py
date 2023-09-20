@@ -1,6 +1,8 @@
 import mechanicalsoup
-import requests
 import re
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 from fuzzer_args import arg_parser
 args = arg_parser().parse_args() # Namespace(type='discover', url='asdasdas', custom_auth=None, common_words=None, extensions=None, vectors=None, sanitized_chars=None, sensitive=None, slow=500)
 
