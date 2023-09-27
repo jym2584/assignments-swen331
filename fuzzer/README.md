@@ -15,3 +15,6 @@
 Alternate tests:
 - `py fuzzer.py discover http://localhost:80 --custom-auth="dvwa" --cw="files/common_words.txt"`
 - `py fuzzer.py discover http://localhost:80/fuzzer-tests --cw="files/common_words.txt"`
+
+### HW 2:
+- Run `py fuzzer.py test http://localhost:80 --custom-auth="dvwa" --cw="files/common_words.txt" --ext="files/extensions.txt" --vec="files/vectors.txt" --sen="files/sensitive.txt"`

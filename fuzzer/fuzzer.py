@@ -49,6 +49,7 @@ def parse_file(filename: str):
         with open(filename) as file:
             for line in file:
                 contents.add(line.strip())
+        print("Loaded {}".format(filename))
         return contents
     except:
         raise Exception("{} cannot be parsed.".format(filename))
@@ -78,7 +79,7 @@ def get_pages_from_url(web_url):
                 continue
             full_link = re.sub("(\.\/)", "", "{}/{}".format(re.findall("^(.*[\\\/])[^\\\/]*$", web_url)[0], link))
             if check_page_status(full_link):
-                routes.add(full_link)
+                routes.add(parse_web_url(full_link))
         except: # requests.exceptions is thrown so avoid looking 
             pass
     return routes
@@ -186,7 +187,12 @@ def test_page_status(web_url):
     if response.status_code != 200:
         print("   Web url threw a {} code...".format(response.status_code))
 
-
+def parse_web_url(web_url):
+    """
+    Parses web url and removes any repeated slashes
+    """
+    # please dont judge me
+    return re.sub(r'(https?://[^/]+)/(?!$)|/{2,}', r'\1/', re.sub(r'(https?://[^/]+)/+', r'\1/', web_url))
 
 def main():
     if args.custom_auth:
@@ -249,16 +255,30 @@ def main():
             SANITIZED_CHARS = {"&lt;", "&gt;"}
         else:
             SANITIZED_CHARS = parse_file(args.sanitized_chars)
+        print("******************** GATHERING WEB INFO ********************")
         print("Guessing pages with {} words and {} extensions...".format(len(words), len(EXTENSIONS)))
-        pages=guess_pages(args.url, words, EXTENSIONS)
+        pages=set()
+        guessed = guess_pages(args.url, words, EXTENSIONS)
         print("Getting crawled links...")
-        pages.union(crawl_pages(guessed_pages))
-        print("Getting URLs with Forms...")
-        urls_with_forms= get_urls_with_forms(guessed_pages)
-        urls_with_forms.union(get_urls_with_forms(guessed_pages))
+        crawled = crawl_pages(guessed)
+        pages = pages.union(guessed, crawled)
+        print("Gathered {} guessed and {} crawled pages:".format(len(guessed), len(crawled)))
+        [print("\t" + str(parse_url(page))) for page in pages]
+        print("___________________________________________________________________")
+        print("Getting URLs with Forms from guessed and crawled pages...")
+        urls_with_forms = get_urls_with_forms(pages)
+        print("Gathered {} URLS with forms:".format(len(urls_with_forms)))
+        [print("\t" + page) for page in urls_with_forms]
+        print("___________________________________________________________________")
         print("Getting cookies...")
         cookies = get_cookies(args.url)
-        if not cookies: print("   No cookies :(")
+        if cookies:
+            for cookie in cookies:
+                print(cookie.name + ":" + cookie.value)
+        else:
+            print("No cookies :(")
+        print("___________________________________________________________________")
+        print("******************** VECTORS ********************")
         
 
 if __name__ == "__main__":
