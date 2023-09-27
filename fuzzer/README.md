@@ -14,4 +14,4 @@
 
 Alternate tests:
 - `py fuzzer.py discover http://localhost:80 --custom-auth="dvwa" --cw="files/common_words.txt"`
-- `py fuzzer.py discover http://localhost:80/fuzzer-tests --custom-auth="dvwa" --cw="files/common_words.txt"`
+- `py fuzzer.py discover http://localhost:80/fuzzer-tests --cw="files/common_words.txt"`

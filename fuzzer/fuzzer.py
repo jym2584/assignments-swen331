@@ -1,5 +1,6 @@
 import mechanicalsoup
 import re
+import time
 from fuzzer_args import arg_parser
 args = arg_parser().parse_args() # Namespace(type='discover', url='asdasdas', custom_auth=None, common_words=None, extensions=None, vectors=None, sanitized_chars=None, sensitive=None, slow=500)
 
@@ -8,6 +9,8 @@ args = arg_parser().parse_args() # Namespace(type='discover', url='asdasdas', cu
 
 browser = mechanicalsoup.StatefulBrowser(user_agent='MechanicalSoup')
 EXTENSIONS=set()
+SANITIZED_CHARS=set()
+SENSITIVE=set()
 def custom_auth():
     """ Custom authentication for known applications
     """
@@ -85,15 +88,11 @@ def guess_pages(web_url, words, extensions):
     Guess pages given a list of words and extensions
     """
     guessed_pages=set()
-    print("Guessing {} words and {} extensions from {}...".format(len(words), len(extensions), web_url))
     for word in words:
         for ext in extensions:
             guessed_url = "{}/{}{}".format(web_url, word, ext)
             if check_page_status(guessed_url):
                 guessed_pages.add(guessed_url)
-    print("\n" + "Guessed pages:")
-    for link in guessed_pages:
-        print("\t" + link)
     return guessed_pages
 
 def crawl_pages(guessed_pages):
@@ -102,12 +101,8 @@ def crawl_pages(guessed_pages):
     """
     crawled = set()
     for page in guessed_pages:
-        print("Crawling " + page + " .....")
         routes = get_pages_from_url(page)
         crawled.update(routes)
-    print("Crawled:")
-    for link in crawled:
-        print("\t" + link)
     return crawled
 
 def get_input_fields(web_url):
@@ -121,19 +116,20 @@ def get_input_fields(web_url):
         return forms
     except: return None
 
-def get_urls_with_forms(valid_url):
+def get_urls_with_forms(valid_url, printForms=False):
     """ Returns a list of urls that has valid forms
     """
     urls_with_forms = set()
     for page in valid_url:
         fields = get_input_fields(page)
         if fields: # print forms if a form has been returned
-            page_string = "************ {} ************".format(page)
-            print(len(page_string) * "*")
-            print(page_string)
-            print(len(page_string) * "*")
-            print(str(fields).encode("UTF-8"))
-            print("\n")
+            if printForms:  # print if required
+                page_string = "************ {} ************".format(page)
+                print(len(page_string) * "*")
+                print(page_string)
+                print(len(page_string) * "*")
+                print(str(fields).encode("UTF-8"))
+                print("\n")
             urls_with_forms.add(page)
     return urls_with_forms
 
@@ -148,13 +144,7 @@ def get_cookies(web_url):
 def parse_url(web_url):
     """ Parses URL for any query parameters    
     """
-    list = []
-    for group in re.match("^(.*?)(\?.*)?$", web_url).groups():
-        if group is None:
-            list.append("")
-        else:
-            list.append(group)
-    return tuple(list)
+    return web_url.split("?")
     # """ Given a web_url and an input (something=a, something=b, etc.), determines whether the web_url goes to the same page
     
     # Returns:
@@ -169,6 +159,33 @@ def parse_url(web_url):
     # src = re.match("^(.*?)(?:\?.*)?$", before).group(1)
     # target = re.match("^(.*?)(?:\?.*)?$", after).group(1)
     #return src == target, (src, target)
+
+########################################
+######            TEST            ######
+########################################
+def check_leaked_data_from_url(web_url):
+    html_content = browser.open(web_url).content
+
+    for word in SENSITIVE:
+        regex = re.findall("(?i)({})".format(word), html_content)
+        if regex:
+            print("{} contains sensitive words:\n\t ({})".format(web_url, regex))
+
+def check_for_delayed_response(web_url):
+    begin = time.perf_counter()
+    browser.open(web_url)
+    end = time.perf_counter()
+    if (end - begin > int(args.slow)/1000):
+        print("   Web url took {}s to load (past {} ms threshold)...".format(end - begin, args.slow))
+
+def test_page_status(web_url):
+    """
+    Checks if the response code for a web page is 200
+    """
+    response = browser.open(web_url)
+    if response.status_code != 200:
+        print("   Web url threw a {} code...".format(response.status_code))
+
 
 
 def main():
@@ -188,11 +205,14 @@ def main():
         print("*************************************************************************************")
         print("************************************Guessed Pages************************************")
         print("*************************************************************************************")
+        print("Guessing pages with {} words and {} extensions...".format(len(words), len(EXTENSIONS)))
         guessed_pages = guess_pages(args.url, words, EXTENSIONS)
+        [print("\t" + str(guessed)) for guessed in guessed_pages]
         print("*************************************************************************************")
         print("************************************Crawled Pages************************************")
         print("*************************************************************************************")
         crawled = crawl_pages(guessed_pages)
+        [print("\t" + str(crawl)) for crawl in crawled]
         print("******************************************************************************************************")
         print("************************************Parsed URLs (Query Parameters)*************************************")
         print("******************************************************************************************************")
@@ -206,11 +226,11 @@ def main():
         print("")
         print("*******************************Guessed pages*******************************")
         print()
-        forms_guessed = get_urls_with_forms(guessed_pages)
+        get_urls_with_forms(guessed_pages, True)
         print("*******************************END Guessed pages END *******************************\n\n")
         print("*******************************Crawled pages*******************************")
         print()
-        forms_crawled = get_urls_with_forms(crawled)
+        get_urls_with_forms(crawled, True)
         print("*******************************END Crawled pages END *******************************\n\n")
         print("*****************************************************************************************")
         print("**************************************** Cookies ****************************************")
@@ -221,6 +241,25 @@ def main():
                 print(cookie.name + ":" + cookie.value)
         else:
             print("No cookies :(")
+    elif args.type == "test":
+        global SENSITIVE
+        SENSITIVE = parse_file(args.sensitive)
+        global SANITIZED_CHARS
+        if args.sanitized_chars == None:
+            SANITIZED_CHARS = {"&lt;", "&gt;"}
+        else:
+            SANITIZED_CHARS = parse_file(args.sanitized_chars)
+        print("Guessing pages with {} words and {} extensions...".format(len(words), len(EXTENSIONS)))
+        pages=guess_pages(args.url, words, EXTENSIONS)
+        print("Getting crawled links...")
+        pages.union(crawl_pages(guessed_pages))
+        print("Getting URLs with Forms...")
+        urls_with_forms= get_urls_with_forms(guessed_pages)
+        urls_with_forms.union(get_urls_with_forms(guessed_pages))
+        print("Getting cookies...")
+        cookies = get_cookies(args.url)
+        if not cookies: print("   No cookies :(")
+        
 
 if __name__ == "__main__":
     main()

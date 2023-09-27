@@ -1,0 +1,5 @@
+' OR 1=1 #
+'
+foobar&lt;foobar
+foobar&gt;foobar
+>"><script>alert("XSS")</script>&

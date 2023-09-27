@@ -34,4 +34,4 @@ args = parser.parse_args()
 
 # test
 if args.type == "test" and (args.vectors is None or args.sensitive is None):
-    parser.error("{test} requires --vectors (--vec) and --sanitized-chars (--san) to be defined as arguments.")
+    parser.error("{test} requires --vectors (--vec) and --sensitive (--sen) to be defined as arguments.")
