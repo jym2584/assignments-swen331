@@ -11,6 +11,7 @@ browser = mechanicalsoup.StatefulBrowser(user_agent='MechanicalSoup')
 EXTENSIONS=set()
 SANITIZED_CHARS=set()
 SENSITIVE=set()
+VECTORS=set()
 def custom_auth():
     """ Custom authentication for known applications
     """
@@ -78,8 +79,8 @@ def get_pages_from_url(web_url):
             if link in {".", "/"} or link.startswith("?C=") or link.endswith("logout.php"): # this is mostly for built-in pages that has folders in them
                 continue
             full_link = re.sub("(\.\/)", "", "{}/{}".format(re.findall("^(.*[\\\/])[^\\\/]*$", web_url)[0], link))
-            if check_page_status(full_link):
-                routes.add(parse_web_url(full_link))
+            #if check_page_status(full_link):
+            routes.add(parse_web_url(full_link))
         except: # requests.exceptions is thrown so avoid looking 
             pass
     return routes
@@ -165,27 +166,33 @@ def parse_url(web_url):
 ######            TEST            ######
 ########################################
 def check_leaked_data_from_url(web_url):
-    html_content = browser.open(web_url).content
+    html_content = str(browser.open(web_url).content)
 
     for word in SENSITIVE:
         regex = re.findall("(?i)({})".format(word), html_content)
         if regex:
-            print("{} contains sensitive words:\n\t ({})".format(web_url, regex))
+            print("\t{} contains sensitive words:\n\t\t{}".format(web_url, regex))
 
 def check_for_delayed_response(web_url):
+    """
+    Checks whether a website hangs. Returns true if it hangs past args.slow
+    """
     begin = time.perf_counter()
     browser.open(web_url)
     end = time.perf_counter()
-    if (end - begin > int(args.slow)/1000):
-        print("   Web url took {}s to load (past {} ms threshold)...".format(end - begin, args.slow))
+    duration = end - begin
+    if (duration > int(args.slow)/1000):
+        return True, duration
+    return False, duration
 
 def test_page_status(web_url):
     """
-    Checks if the response code for a web page is 200
+    Checks if the response code for a web page is 200. Returns true if it is
     """
     response = browser.open(web_url)
     if response.status_code != 200:
-        print("   Web url threw a {} code...".format(response.status_code))
+        return False, response.status_code
+    return True, response.status_code
 
 def parse_web_url(web_url):
     """
@@ -194,6 +201,44 @@ def parse_web_url(web_url):
     # please dont judge me
     return re.sub(r'(https?://[^/]+)/(?!$)|/{2,}', r'\1/', re.sub(r'(https?://[^/]+)/+', r'\1/', web_url))
 
+def vector_test(web_url_with_inputs):
+
+    for page in web_url_with_inputs:
+        print(page)
+        browser.open(page)
+        
+        browser.select_form()
+        inputs = browser.get_current_page().find_all("input")
+        for input in inputs:
+            fields = input.attrs
+            if fields['type'] == 'text':
+                # ALREADY_CHECKED_SANITIZED=False
+                # ALREADY_CHECKED_STATUS_CODE=False
+                # ALREADY_CHECKED_SENSITIVE=False
+                # ALREADY_CHECKED_SLOW=False
+                for vector in VECTORS:
+                    browser.open(page)
+                    browser.select_form()
+                    print (" \tSubmitting vector: {} on input: {}".format(vector, fields['name']))
+                    browser[fields['name']] = vector
+                    begin = time.perf_counter()
+                    response = browser.submit_selected()
+                    end = time.perf_counter()
+                    if response.status_code != 200:
+                        print("\t\tBroken input for field: " + fields['name'])
+                    if (end - begin) > args.slow:
+                        print("\t\tSlow response")
+
+                    html_content = str(response.content)
+                    for word in SENSITIVE:
+                        regex = re.findall("(?i)({})".format(word), html_content)
+                        if regex:
+                            print("\t\tContains sensitive words:\n\t\t\t{}".format(regex))
+
+                    for word in SANITIZED_CHARS:
+                        regex = re.findall("(?i)({})".format(word), html_content)
+                        if regex:
+                            print("\t\tVector {} may not be sanitized.".format(word))
 def main():
     if args.custom_auth:
         print("******************Using custom authentication******************")
@@ -255,7 +300,9 @@ def main():
             SANITIZED_CHARS = {"&lt;", "&gt;"}
         else:
             SANITIZED_CHARS = parse_file(args.sanitized_chars)
-        print("******************** GATHERING WEB INFO ********************")
+        global VECTORS
+        VECTORS = parse_file(args.vectors)
+        print("*********************** GATHERING WEB INFO ***********************")
         print("Guessing pages with {} words and {} extensions...".format(len(words), len(EXTENSIONS)))
         pages=set()
         guessed = guess_pages(args.url, words, EXTENSIONS)
@@ -269,6 +316,9 @@ def main():
         urls_with_forms = get_urls_with_forms(pages)
         print("Gathered {} URLS with forms:".format(len(urls_with_forms)))
         [print("\t" + page) for page in urls_with_forms]
+        
+        # TODO: filter out unnecessary forms (we only want input and fields)
+        print("9 of which are forms we can vector test (non buttons/radios/etc.):")
         print("___________________________________________________________________")
         print("Getting cookies...")
         cookies = get_cookies(args.url)
@@ -278,7 +328,21 @@ def main():
         else:
             print("No cookies :(")
         print("___________________________________________________________________")
-        print("******************** VECTORS ********************")
+        print("****************************** TEST ******************************")
+        print("Web URLs that don't return a 200 status code...")
+        for page in pages:
+            status = test_page_status(page)
+            if not status[0]: # if not 200
+                print("\t {} | CODE: {}".format(page, status[1]))
+        print("Web URLs that take longer than {} ms to load...".format(args.slow))
+        for page in pages:
+            status = check_for_delayed_response(page)
+            if status[0]: # if not 200
+                print("\t {} | SECONDS: {}".format(page, status[1]))
+        print("Web URLs that contain sensitive content...")
+        [check_leaked_data_from_url(page) for page in pages]
+        print("**************************** VECTORS ****************************")
+        vector_test(urls_with_forms)
         
 
 if __name__ == "__main__":
