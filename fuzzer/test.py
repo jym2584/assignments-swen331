@@ -43,12 +43,14 @@ def vector_test(web_url_with_inputs):
                 ALREADY_CHECKED_SENSITIVE=False
                 ALREADY_CHECKED_SLOW=False
                 for vector in VECTORS:
-                    browser.open(page)
+                    before = browser.open(page)
                     browser.select_form()
                     browser[fields['name']] = vector
                     begin = time.perf_counter()
                     response = browser.submit_selected()
                     end = time.perf_counter()
+                    if str(before.content) != str(response.content):
+                        print("Content is differnet")
                     if not ALREADY_CHECKED_STATUS_CODE and response.status_code != 200:
                         print("Broken input for field: " + fields['name'])
                         ALREADY_CHECKED_STATUS_CODE = True

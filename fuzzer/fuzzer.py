@@ -217,7 +217,7 @@ def vector_test(web_url_with_inputs):
                 # ALREADY_CHECKED_SENSITIVE=False
                 # ALREADY_CHECKED_SLOW=False
                 for vector in VECTORS:
-                    browser.open(page)
+                    before = browser.open(page)
                     browser.select_form()
                     print (" \tSubmitting vector: {} on input: {}".format(vector, fields['name']))
                     browser[fields['name']] = vector
