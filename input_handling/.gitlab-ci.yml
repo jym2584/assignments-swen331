@@ -1,0 +1,8 @@
+tests:
+  image: node:latest
+  stage: test
+  before_script:
+    - node --version
+    - npm install
+  script:
+    - npx jest --ci

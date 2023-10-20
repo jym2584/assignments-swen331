@@ -1,0 +1,1 @@
+console.log(/\p{Emoji}/u.test("A-z 1"))
