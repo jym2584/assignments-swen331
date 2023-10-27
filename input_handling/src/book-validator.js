@@ -1,5 +1,4 @@
 const sanitizeHTML = require('sanitize-html');
-
 // Sanity check method to make sure you have your environment up and running.
 function sum(a, b) {
   return a + b;
@@ -71,7 +70,20 @@ function isTitle(str){
     * German character "\u1E9E" or ẞ is equivalent to "ss"
 */
 function isSameTitle(strA, strB){
-  return false;
+  if (strA.constructor !== String || strB.constructor !== String) { // check the type this way b/c of new String("")
+    return false;
+  }
+  // trim leading and trailing whitespaces because we don't care about them
+  strA = strA.trim();
+  strB = strB.trim();
+
+  // convert diacritics and ligatures into their normal counterparts
+  // Source: https://stackoverflow.com/a/37511463
+  strA = strA.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\p{C}\p{M}\p{S}\p{P}\p{N}\p{Z}]/gu, "").replace(/\u00E6/g, "ae").replace(/\u1E9E/g, "ss").replace(/\uFB00/g, "ff");
+  strB = strB.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\p{C}\p{M}\p{S}\p{P}\p{N}\p{Z}]/gu, "").replace(/\u00E6/g, "ae").replace(/\u1E9E/g, "ss").replace(/\uFB00/g, "ff");
+
+  return strA == strB;
+
 }
 
 /*
@@ -100,7 +112,37 @@ function isSameTitle(strA, strB){
 
 */
 function countPages(rawStr){
-  return false;
+  rawStr = rawStr.replace(/\s+/, "").replace(/p/, ""); // remove all spaces and the page symbol
+  /**
+   * Tests if there exists:
+   *  1. NOT a digit, comma, or dash
+   *  2. unicode characters that don't involve slashes
+   */
+  if (!/[\d,-]+/.test(rawStr) || (/[\p{Letter}\p{Mark}]+/gu.test(rawStr) && !/-/.test(rawStr))) {
+    return 0;
+  }
+
+  // iterate through comma separate values if applicable
+  let split = rawStr.split(",");
+  let count = 0;
+  for (let range of split) {
+    if (/-/.test(range)) { // iterate through ticks
+      let subSplit = range.split("-");
+      if (subSplit.length > 2) {
+        return 0;
+      }
+      let half = parseInt(subSplit[0]);
+      let halfOther = parseInt(subSplit[1]);
+      if (half > 1000 | halfOther > 1000) {
+        return undefined;
+      }
+      count = count + (Math.abs(half - halfOther)); 
+    }
+    count++;
+  }
+
+  return count;
+
 }
 
 /*
@@ -109,9 +151,17 @@ function countPages(rawStr){
   Returns: an integer, ignoring leading and trailing whitespace. And it can have p in front of it.
 */
 function cleanPageNum(str){
-  return false;
-}
+  str = str.replace(/\s+/, "").replace(/p/, ""); // remove all spaces and the page symbol
+  if (/[a-zA-Z]+/.test(str)) {
+    return undefined;
+  }
 
+  str = parseInt(str)
+  if (str < 0) {
+    return undefined;
+  }
+  return str;
+}
 
 /*
   Given a string, return another string that is safe for embedding into HTML.
@@ -120,9 +170,13 @@ function cleanPageNum(str){
       (Read the README to learn how to do this)
 */
 function cleanForHTML(dirty) {
-  return dirty;
+  let clean = sanitizeHTML(dirty, {
+    allowedTags: ['b', 'i'],
+    disallowedTagsMode: 'escape',
+  });
+  clean = clean.replaceAll(/["']/g, "&quot;");
+  return clean;
 }
-
 
 // Too all my JS nitpickers...
 // We are using CommonJS modules because that's what Jest currently best supports
